@@ -1,14 +1,40 @@
+"""Price tracker: reads product prices from a web page, saves each check to a CSV,
+and reports any prices that have changed since the last check.
+
+Usage:
+    python tracker.py                         # checks the default practice site
+    python tracker.py URL                     # checks a different page
+    python tracker.py URL -o other_prices.csv # keeps that page's history in its own file
+"""
+import argparse
 import csv
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
 
-URL = "https://books.toscrape.com/"
-HEADERS = {"User-Agent": "price-tracker/0.1 (learning project)"}  # says who is asking
-OUTPUT_FILE = "prices.csv"
+DEFAULT_URL = "https://books.toscrape.com/"
+DEFAULT_OUTPUT = "prices.csv"
+HEADERS = {"User-Agent": "price-tracker/0.1 (learning project)"}
+
+def fetch_page(url):
+    """Download a page and return its HTML, or exit with a friendly message."""
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()  # turns 404, 403, 500... into an error
+    except requests.exceptions.HTTPError as error:
+        sys.exit(f"Error: the site answered with status {error.response.status_code} for '{url}'.")
+    except requests.exceptions.ConnectionError:
+        sys.exit(f"Error: can't connect to '{url}'. Check your internet connection and the address.")
+    except requests.exceptions.Timeout:
+        sys.exit(f"Error: '{url}' took too long to respond.")
+    except requests.exceptions.RequestException as error:
+        sys.exit(f"Error: couldn't fetch '{url}' ({error}).")
+    response.encoding = "utf-8"
+    return response.text
 
 def parse_product(product):
     """Pull the title and price out of one product's HTML."""
@@ -16,6 +42,20 @@ def parse_product(product):
     price_text = product.find("p", class_="price_color").text
     price = float(re.sub(r"[^\d.]", "", price_text))
     return {"title": title, "price": price}
+
+def get_products(html):
+    """Parse every product on the page, skipping (and counting) any that don't look right."""
+    soup = BeautifulSoup(html, "html.parser")
+    products = []
+    skipped = 0
+    for tag in soup.find_all("article", class_="product_pod"):
+        try:
+            products.append(parse_product(tag))
+        except (AttributeError, KeyError, ValueError):
+            skipped += 1
+    if skipped:
+        print(f"Warning: skipped {skipped} product(s) that didn't look right.")
+    return products
 
 def load_last_run(filename):
     """Return {title: price} for the most recent run in the CSV, or {} if there isn't one."""
@@ -63,27 +103,30 @@ def save_prices(products, filename):
         for item in products:
             writer.writerow([timestamp, item["title"], item["price"]])
 
-# fetch the page (give up after 10 seconds instead of waiting forever)
-response = requests.get(URL, headers=HEADERS, timeout=10)
-response.encoding = "utf-8"  # the site doesn't say, and requests guesses wrong (see below)
-print("Status code:", response.status_code)
+def main():
+    parser = argparse.ArgumentParser(description="Track product prices on a page and flag changes.")
+    parser.add_argument("url", nargs="?", default=DEFAULT_URL,
+                        help="page to check (default: the books.toscrape.com practice site)")
+    parser.add_argument("-o", "--output", default=DEFAULT_OUTPUT,
+                        help="CSV file that stores the price history (default: prices.csv)")
+    args = parser.parse_args()
 
-# turn the HTML text into something we can search
-soup = BeautifulSoup(response.text, "html.parser")
+    html = fetch_page(args.url)
+    products = get_products(html)
+    if not products:
+        sys.exit("Error: no products found. Is this the right page, or has its layout changed?")
+    print(f"Found {len(products)} products")
 
-# find_all returns every matching tag, not just the first one
-products = []
-for product in soup.find_all("article", class_="product_pod"):
-    products.append(parse_product(product))
+    # compare with the last run BEFORE saving, otherwise "last run" would be this one
+    previous = load_last_run(args.output)
+    if previous:
+        report_changes(find_changes(previous, products))
+    else:
+        print("First run - nothing to compare with yet.")
 
-print(f"Found {len(products)} products")
+    save_prices(products, args.output)
+    print(f"Saved {len(products)} prices to {args.output}")
 
-# compare with the last run BEFORE saving, otherwise "last run" would be this one
-previous = load_last_run(OUTPUT_FILE)
-if previous:
-    report_changes(find_changes(previous, products))
-else:
-    print("First run - nothing to compare with yet.")
 
-save_prices(products, OUTPUT_FILE)
-print(f"Saved {len(products)} prices to {OUTPUT_FILE}")
+if __name__ == "__main__":
+    main()
