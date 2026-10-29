@@ -6,3 +6,4 @@ prices.csv
 *.log
 cron_test.csv
 /*.csv
+.pytest_cache/
