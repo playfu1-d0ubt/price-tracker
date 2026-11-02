@@ -8,6 +8,7 @@ from tracker import (
     load_last_run,
     parse_product,
     report_changes,
+    save_prices,
 )
 
 GOOD_PRODUCT = (
@@ -103,3 +104,26 @@ def test_report_changes_shows_a_drop(capsys):
     captured = capsys.readouterr()
 
     assert captured.out == "DROPPED: Book A  £10.00 -> £8.00\n"
+
+def test_save_prices_writes_a_header_and_the_rows(tmp_path):
+    """A new file gets a header line, then one row per product."""
+    file_path = tmp_path / "prices.csv"
+
+    save_prices([{"title": "Book A", "price": 10.0}], file_path)
+
+    lines = file_path.read_text().splitlines()
+    assert lines[0] == "timestamp,title,price"
+    assert lines[1].endswith(",Book A,10.0")
+
+def test_save_prices_adds_to_the_file_without_a_second_header(tmp_path):
+    """If the file already exists, a second header is not added."""
+    file_path = tmp_path / "prices.csv"
+    file_path.write_text("timestamp,title,price\n2026-10-01 09:00:00,Book A,10.0\n")
+
+    save_prices([{"title": "Book B", "price": 8.0}], file_path)
+
+    lines = file_path.read_text().splitlines()
+    assert lines[0] == "timestamp,title,price"
+    assert lines[1].endswith(",Book A,10.0")
+    assert lines[2].endswith(",Book B,8.0")
+    assert len(lines) == 3
