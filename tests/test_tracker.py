@@ -1,4 +1,6 @@
-from tracker import find_changes
+"""Tests for price-tracker"""
+
+from tracker import find_changes, load_last_run
 
 
 def test_find_changes_reports_a_drop():
@@ -30,3 +32,22 @@ def test_find_changes_empty_input():
     old_prices = {}
     new_products = []
     assert find_changes(old_prices, new_products) == []
+
+def test_load_last_run_returns_empty_when_file_is_missing(tmp_path):
+    """With no CSV yet, there is no last run, so the result is empty."""
+    missing_file = tmp_path / "does_not_exist.csv"
+
+    assert load_last_run(missing_file) == {}
+
+def test_load_last_run_uses_only_the_latest_run(tmp_path):
+    """If the CSV has multiple runs, only the latest one is used."""
+    file_path = tmp_path / "prices.csv"
+    file_path.write_text(
+        "timestamp,title,price\n"
+        "2026-10-01 09:00:00,Book A,10.00\n"
+        "2026-10-02 09:00:00,Book A,8.00\n"
+    )
+
+    result = load_last_run(file_path)
+
+    assert result == {"Book A": 8.00}
