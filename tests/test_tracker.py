@@ -1,6 +1,8 @@
 """Tests for price-tracker"""
 
-from tracker import find_changes, load_last_run
+from bs4 import BeautifulSoup
+
+from tracker import find_changes, get_products, load_last_run, parse_product
 
 
 def test_find_changes_reports_a_drop():
@@ -51,3 +53,28 @@ def test_load_last_run_uses_only_the_latest_run(tmp_path):
     result = load_last_run(file_path)
 
     assert result == {"Book A": 8.00}
+
+GOOD_PRODUCT = (
+    '<article class="product_pod">'
+    '<h3><a title="Book A">Book A</a></h3>'
+    '<p class="price_color">£51.77</p>'
+    "</article>"
+)
+
+BAD_PRODUCT = (
+    '<article class="product_pod">'
+    '<h3><a title="Book A">Book A</a></h3>'
+    "</article>"
+)
+
+def test_parse_product_reads_title_and_price():
+    """The title and a numeric price are pulled out of one product's HTML."""
+    product = BeautifulSoup(GOOD_PRODUCT, "html.parser").find("article")
+
+    assert parse_product(product) == {"title": "Book A", "price": 51.77}
+
+def test_get_products_skips_a_product_with_no_price():
+    """If a product has no price, it is skipped."""
+    html = f"<html><body>{GOOD_PRODUCT}{BAD_PRODUCT}</body></html>"
+
+    assert get_products(html) == [{"title": "Book A", "price": 51.77}]
