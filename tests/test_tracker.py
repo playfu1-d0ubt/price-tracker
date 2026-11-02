@@ -2,8 +2,26 @@
 
 from bs4 import BeautifulSoup
 
-from tracker import find_changes, get_products, load_last_run, parse_product
+from tracker import (
+    find_changes,
+    get_products,
+    load_last_run,
+    parse_product,
+    report_changes,
+)
 
+GOOD_PRODUCT = (
+    '<article class="product_pod">'
+    '<h3><a title="Book A">Book A</a></h3>'
+    '<p class="price_color">£51.77</p>'
+    "</article>"
+)
+
+BAD_PRODUCT = (
+    '<article class="product_pod">'
+    '<h3><a title="Book A">Book A</a></h3>'
+    "</article>"
+)
 
 def test_find_changes_reports_a_drop():
     """A price that went down is reported with its old and new value."""
@@ -54,18 +72,6 @@ def test_load_last_run_uses_only_the_latest_run(tmp_path):
 
     assert result == {"Book A": 8.00}
 
-GOOD_PRODUCT = (
-    '<article class="product_pod">'
-    '<h3><a title="Book A">Book A</a></h3>'
-    '<p class="price_color">£51.77</p>'
-    "</article>"
-)
-
-BAD_PRODUCT = (
-    '<article class="product_pod">'
-    '<h3><a title="Book A">Book A</a></h3>'
-    "</article>"
-)
 
 def test_parse_product_reads_title_and_price():
     """The title and a numeric price are pulled out of one product's HTML."""
@@ -78,3 +84,22 @@ def test_get_products_skips_a_product_with_no_price():
     html = f"<html><body>{GOOD_PRODUCT}{BAD_PRODUCT}</body></html>"
 
     assert get_products(html) == [{"title": "Book A", "price": 51.77}]
+
+
+def test_report_changes_says_when_nothing_changed(capsys):
+    """With no changes, a friendly message is printed."""
+    report_changes([])
+
+    captured = capsys.readouterr()
+
+    assert captured.out == "No price changes since the last check.\n"
+
+def test_report_changes_shows_a_drop(capsys):
+    """A price drop is reported with the old and new value."""
+    changes = [{"title": "Book A", "old": 10.00, "new": 8.00}]
+
+    report_changes(changes)
+
+    captured = capsys.readouterr()
+
+    assert captured.out == "DROPPED: Book A  £10.00 -> £8.00\n"
