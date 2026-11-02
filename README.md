@@ -1,7 +1,8 @@
 # Price Tracker
- 
+![Tests](https://github.com/playfu1-d0ubt/price-tracker/actions/workflows/tests.yml/badge.svg)
+
 A command-line tool, written in Python, that checks the prices on a web page, keeps a history of every check, and tells you which prices have dropped or risen since the last time.
- 
+
 ## What it does
  
 ### The problem
@@ -72,11 +73,20 @@ Use a separate `-o` file for each page you track. The history is matched by prod
 On Linux, `cron` can run it on a schedule. Run `crontab -e` and add a line like this, which checks every day at 9am (use the full path to your own project folder):
  
 ```
-0 9 * * * cd /home/YOUR-NAME/price-tracker && ./venv/bin/python tracker.py >> tracker.log 2>&1
+0 9 * * * cd /home/YOUR-NAME/projects/price-tracker && ./venv/bin/python tracker.py >> tracker.log 2>&1
 ```
  
 The computer needs to be switched on at that time. Anything the script prints is added to `tracker.log`.
  
+# Running the tests
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+The tests cover finding price changes, reading the CSV history, parsing the HTML and saving prices. They use small fake data and temporary files, so no website is needed and your real `prices.csv` is never touched. The same tests run on GitHub on every push.
+
 ## Limitations
  
 - It only reads the page you give it, not the following pages of a listing.
