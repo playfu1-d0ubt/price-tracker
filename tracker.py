@@ -56,7 +56,7 @@ def get_products(html):
         except (AttributeError, KeyError, ValueError):
             skipped += 1
     if skipped:
-        print(f"Warning: skipped {skipped} product(s) that didn't look right.")
+        logger.warning("Skipped %d product(s) that didn't look right.", skipped)
     return products
 
 def load_last_run(filename):
@@ -129,10 +129,10 @@ def main():
     if previous:
         report_changes(find_changes(previous, products))
     else:
-        print("First run - nothing to compare with yet.")
+        logger.info("First run - nothing to compare with yet.")
 
     save_prices(products, args.output)
-    print(f"Saved {len(products)} prices to {args.output}")
+    logger.info(f"Saved {len(products)} prices to {args.output}")
 
 
 if __name__ == "__main__":
