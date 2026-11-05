@@ -8,17 +8,19 @@ Usage:
 """
 import argparse
 import csv
+import logging
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
+
 import requests
 from bs4 import BeautifulSoup
-
 
 DEFAULT_URL = "https://books.toscrape.com/"
 DEFAULT_OUTPUT = "prices.csv"
 HEADERS = {"User-Agent": "price-tracker/0.1 (learning project)"}
+logger = logging.getLogger(__name__)
 
 def fetch_page(url):
     """Download a page and return its HTML, or exit with a friendly message."""
@@ -104,6 +106,11 @@ def save_prices(products, filename):
             writer.writerow([timestamp, item["title"], item["price"]])
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     parser = argparse.ArgumentParser(description="Track product prices on a page and flag changes.")
     parser.add_argument("url", nargs="?", default=DEFAULT_URL,
                         help="page to check (default: the books.toscrape.com practice site)")
@@ -115,7 +122,7 @@ def main():
     products = get_products(html)
     if not products:
         sys.exit("Error: no products found. Is this the right page, or has its layout changed?")
-    print(f"Found {len(products)} products")
+    logger.info("Found %d products", len(products))
 
     # compare with the last run BEFORE saving, otherwise "last run" would be this one
     previous = load_last_run(args.output)
