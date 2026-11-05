@@ -1,109 +1,92 @@
 # Price Tracker
 ![Tests](https://github.com/playfu1-d0ubt/price-tracker/actions/workflows/tests.yml/badge.svg)
 
-A command-line tool, written in Python, that checks the prices on a web page, keeps a history of every check, and tells you which prices have dropped or risen since the last time.
+A command-line tool, written in Python, that checks the prices on a web page, keeps a history of every check, and tells you which prices have dropped or risen since the last time. The practice site it reads is built for scraping practice.
 
-## What it does
- 
-### The problem
- 
-Keeping an eye on prices by hand means opening a page, scrolling, and trying to remember what things cost last week. This script does the checking in one command and does the remembering for you, so you only see what changed. It could be used to watch competitors' prices, a supplier's catalogue, or products you're waiting to go on sale.
- 
-### Features
- 
-- Downloads a product listing page and reads the title and price of every product
-- Saves each check to a CSV file with a timestamp, so you build up a price history
-- Compares the new prices with the previous check and prints every change, biggest drops first
-- Takes the page address as an argument, so it isn't tied to one page
-- Shows a clear message, not a crash, when the site is down, the address is wrong or the page layout isn't what it expects
-### Example
- 
+## How it works
+
+1. Download the page, with a timeout and a clear message for each kind of failure.
+2. Find each product with BeautifulSoup and read its title and price. Products that look wrong are skipped and logged as a warning.
+3. Read the history CSV and take the prices from the most recent check.
+4. Compare old and new prices, and print every change, biggest drops first.
+5. Add the new check to the end of the CSV, with one timestamp for the whole run.
+6. Log what happened (products found, first run, prices saved) with a time and a level, so a run you did not watch can be read later.
+
+The history file has three columns: `timestamp`, `title` and `price`. Prices are matched by product title.
+
+## Example
+
 The practice site's prices never change, so to show a change I edited three prices in the history file by hand and ran the script again.
- 
+
 ```
 $ python tracker.py
-Status code: 200
-Found 20 products
+2026-11-05 09:00:01 INFO Found 20 products
 DROPPED: Libertarianism for Beginners  £55.00 -> £51.33
 DROPPED: Mesaerion: The Best Science Fiction Stories 1800-1849  £40.50 -> £37.59
 ROSE: It's Only the Himalayas  £45.00 -> £45.17
-Saved 20 prices to prices.csv
+2026-11-05 09:00:01 INFO Saved 20 prices to prices.csv
 ```
- 
-When nothing has changed it says `No price changes since the last check.`
- 
-### How it works
- 
-| Part | What it does |
-| --- | --- |
-| `fetch_page` | Downloads the page, with a timeout and a clear message for each kind of failure |
-| `get_products` / `parse_product` | Finds each product on the page with BeautifulSoup and reads its title and price, skipping any that look wrong |
-| `load_last_run` | Reads the history CSV and returns the prices from the most recent check |
-| `find_changes` / `report_changes` | Compares old and new prices and prints the differences |
-| `save_prices` | Adds the new check to the end of the CSV, with one timestamp for the whole run |
- 
-The history file has three columns: `timestamp`, `title` and `price`. `sample_data/` holds an example history file.
- 
+
+When nothing has changed it prints `No price changes since the last check.`
+
+The price changes are the result, so they are printed plainly. The lines with a time and a level are the log of what the program did.
+
 ## How to run
- 
-You need Python 3.
- 
+
 ```bash
-git clone git@github.com:playfu1-d0ubt/price-tracker.git
+git clone https://github.com/playfu1-d0ubt/price-tracker.git
 cd price-tracker
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python tracker.py
-```
- 
-### Options
- 
-```bash
 python tracker.py                           # checks the default practice site
 python tracker.py URL                       # checks a different page
 python tracker.py URL -o other_prices.csv   # keeps that page's history in its own file
 python tracker.py --help                    # shows all options
+python -m pytest                            # run the tests
 ```
- 
-Use a separate `-o` file for each page you track. The history is matched by product title, so mixing two different pages in one file would compare the wrong products.
- 
+
+Use a separate `-o` file for each page you track. Mixing two pages in one file would compare the wrong products.
+
 ### Running it every day
- 
+
 On Linux, `cron` can run it on a schedule. Run `crontab -e` and add a line like this, which checks every day at 9am (use the full path to your own project folder):
- 
+
 ```
 0 9 * * * cd /home/YOUR-NAME/projects/price-tracker && ./venv/bin/python tracker.py >> tracker.log 2>&1
 ```
- 
-The computer needs to be switched on at that time. Anything the script prints is added to `tracker.log`.
- 
-# Running the tests
 
-```bash
-pip install -r requirements.txt
-pytest
-```
+The computer needs to be switched on at that time. Everything the script prints and logs is added to `tracker.log`. Each log line has a date and time, so you can see which run it came from.
 
-The tests cover finding price changes, reading the CSV history, parsing the HTML and saving prices. They use small fake data and temporary files, so no website is needed and your real `prices.csv` is never touched. The same tests run on GitHub on every push.
+## Files
+
+| File | What it does |
+| --- | --- |
+| `tracker.py` | Downloads the page, finds the products, compares prices, reports changes, saves the history and logs progress |
+| `requirements.txt` | The Python packages needed |
+| `sample_data/` | An example history file |
+| `tests/test_tracker.py` | Tests for finding changes, reading the CSV, parsing the HTML and saving prices |
+| `pytest.ini` | Settings for `pytest` |
+| `.github/workflows/tests.yml` | Runs the tests on GitHub on every push |
+
+The tests use small fake data and temporary files, so no website is needed and your real `prices.csv` is never touched.
 
 ## Limitations
- 
+
 - It only reads the page you give it, not the following pages of a listing.
 - It looks for the HTML structure used by the practice site (`article.product_pod` and `price_color`). A different site needs those lines changed in `parse_product` and `get_products`.
 - It reads prices in pounds only, and ignores any product it hasn't seen before.
 - It prints changes in the terminal. It doesn't send emails or notifications yet.
-- No automated tests yet.
+- Logging goes to the terminal only. It is not saved to a file unless `cron` or `>>` does that.
 - Before scraping a real site, check its terms of service and `robots.txt`, and use an official API or data feed if there is one. This project uses [books.toscrape.com](https://books.toscrape.com/), which exists for scraping practice.
+- Tested on Linux Mint only.
+
 ## What I learned
- 
-**What I practised:** downloading a web page with `requests`, reading it with BeautifulSoup, building a command-line tool with `argparse`, keeping a CSV history, handling errors with clear messages, and scheduling a script with `cron`.
- 
-**Testing a change:** the practice site's prices never change, so I edited prices in the history file by hand to check the comparison worked.
- 
-**Ideas for later:**
- 
-- Follow the "next page" links to read a whole catalogue
-- Send an email or Discord message when a price drops below a target
-- Make the page structure a setting, so one script can read several sites
-- Draw a chart of how a price has moved over time
+
+I practised downloading a web page with `requests`, reading it with BeautifulSoup, building a command-line tool with `argparse`, keeping a CSV history, handling errors with clear messages, and scheduling a script with `cron`. I added tests with `pytest` and a GitHub Actions workflow that runs them on every push.
+
+The practice site's prices never change, so I edited prices in the history file by hand to check the comparison worked.
+
+Later I swapped most of the `print` lines for the `logging` module. I learned to split the two jobs: `print` is for the result the user wants to read, and `logging` is the diary of what the program did, with a time and a level (`INFO`, `WARNING`). I set it up once in `main`, so importing the file in tests does not switch logging on.
+
+The bug that surprised me was line order in `tracker.log`. Log lines go to stderr and `print` goes to stdout. When both go to a file, Python holds the `print` text until the end, so the result line landed after `Saved`. I only saw it by running the script twice into a file, because the first run has no result line. Adding `flush=True` to those `print` calls fixed it.
