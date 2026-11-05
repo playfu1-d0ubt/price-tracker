@@ -86,11 +86,11 @@ def find_changes(old_prices, new_products):
 def report_changes(changes):
     """Print each price change, drops first."""
     if not changes:
-        print("No price changes since the last check.")
+        print("No price changes since the last check.", flush=True)
         return
     for change in sorted(changes, key=lambda c: c["new"] - c["old"]):
         word = "DROPPED" if change["new"] < change["old"] else "ROSE"
-        print(f"{word}: {change['title']}  £{change['old']:.2f} -> £{change['new']:.2f}")
+        print(f"{word}: {change['title']}  £{change['old']:.2f} -> £{change['new']:.2f}", flush=True)
 
 def save_prices(products, filename):
     """Add this run's prices to the end of the CSV, all stamped with the same time."""
