@@ -1,11 +1,14 @@
-"""Price tracker: reads product prices from a web page, saves each check to a CSV,
-and reports any prices that have changed since the last check.
+"""Price tracker: read prices from a web page and report changes.
+
+Each check is saved to a CSV with a timestamp, so a price history builds up.
+Prices that changed since the last check are printed, biggest drops first.
 
 Usage:
     python tracker.py                         # checks the default practice site
     python tracker.py URL                     # checks a different page
     python tracker.py URL -o other_prices.csv # keeps that page's history in its own file
 """
+
 import argparse
 import csv
 import logging
@@ -106,6 +109,7 @@ def save_prices(products, filename):
             writer.writerow([timestamp, item["title"], item["price"]])
 
 def main():
+    """Read the command line, check the page, report changes and save the prices."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
